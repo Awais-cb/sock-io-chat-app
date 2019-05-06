@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>CB's socket.io chat app</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+<body>
+	<div class="container" id="app">
+        <div class="col-md-10 col-lg-10 offset-lg-1 offset-md-1">
+            <div v-if="ready">
+                <h4>{{name}}</h4>
+                <p v-if="ready && userInfo.length > 0" v-for="user in userInfo">
+                    <small>
+                    	<template v-if="user.name">{{user.name}}</template>
+                    	<template v-else>Someone</template> {{user.type}}
+                    </small>
+                </p>
+            </div>
+            <form @submit.prevent="setMyName" class="mt-4" v-else>
+                <div class="form-group row">
+                    <input type="text" class="form-control col-10" v-model="name" required="required" placeholder="Type Here your name and hit enter"><br>
+                </div>
+            </form>
+            <div class="card bg-info" v-if="ready">
+                <div class="card-header text-white">
+                    CB chat app
+                    <span class="float-right">{{connections}} connections
+                    <!-- , 0 Online -->
+                  	</span>
+                </div>
+
+                <ul class="list-group list-group-flush text-right">
+                    <li class="list-group-item" v-for="message in messages">
+                        <span :class="{'float-left':(message.type===1)}">
+                            {{ message.message }}
+                            <small>: {{message.by}}</small>
+                        </span>
+                    </li>
+                </ul>
+
+                <div class="card-body">
+                		<small v-if="typing" class="text-white">
+                        <i>{{userTyping}} is typing</i>
+                    </small>
+                    <form @submit.prevent="send">
+                        <div class="form-group">
+                            <input type="text" class="form-control" v-model="newMessage" placeholder="Type Here">
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+	
+
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+	<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.min.js"></script> -->
+	<script>
+		//	This io function has nothing to do with server side socket initialization
+	 	var socket = io();
+	 	var app = new Vue({
+	 		el : '#app',
+	 		data(){
+	 			return {
+	 				name: null,
+			 		ready: false,
+			 		newMessage: null,
+			 		messages:[],
+			 		typing: false,
+			 		userInfo: [],
+			 		userTyping : null,
+			 		connections : 0
+	 			}
+	 		},
+	 		methods:{
+	 			setMyName(){
+	 				this.ready = true
+	 				socket.emit('newUserJoined',this.name)
+	 			},
+	 			send(){
+	 				this.messages.push({
+	 					message: this.newMessage,
+	 					by: 'Me',
+	 					type: 0
+	 				})
+	 				socket.emit('sendNewChatMessage',{message:this.newMessage,user:this.name})
+	 				this.newMessage = null
+	 			},
+			},
+			watch:{
+				newMessage(value){
+					value ? socket.emit('typing',this.name) : socket.emit('typingStopped')
+				}
+			},
+	 		created(){
+	 			// Getting connections
+	 			socket.on('connections',(data)=>{
+	 				this.connections = data
+	 			}) 
+
+	 			// User landed on page
+	 			socket.emit('userLandedOnClient',{userid : 1})
+	 			socket.on('userReceivedByServer',(data)=>{
+	 				console.log(data)
+	 			})
+
+	 			// New user joined
+	 			socket.on('newUserJoinedAcknowledged',(data)=>{
+	 				this.userInfo.push({name:data,type:'Joined'})
+	 				setTimeout(()=>{
+	 					this.userInfo = []
+	 				},3000)
+	 			})
+	 			
+	 			// User is typing
+	 			socket.on('typingAcknowledged',(data)=>{
+	 				this.typing = true
+	 				this.userTyping = data
+	 			})
+	 			socket.on('typingStoppedAcknowledged',(data)=>{
+	 				this.typing = false
+	 			})
+
+	 			// New message received
+	 			socket.on('newChatMessageReceived',(data)=>{
+	 				this.messages.push({
+	 					message:data.message,
+	 					by:data.user,
+	 					type: 1
+	 				})
+	 			})
+	 			
+	 			// When user leaves
+	 			window.onbeforeunload = ()=>{
+	 				socket.emit('userLeft',this.name)
+	 			}
+				socket.on('userLeftAcknowledged',(data)=>{
+	 				this.userInfo.push({name:data,type:'Left'})
+	 				setTimeout(()=>{
+	 					this.userInfo = []
+	 				},3000)
+	 			})
+
+			},
+	 		mounted(){
+	 		},
+	 	})
+
+	</script>
+</body>
+</html>
