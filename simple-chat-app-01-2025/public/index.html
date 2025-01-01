@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chat App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #messages { list-style-type: none; padding: 0; }
+        #messages li { margin: 5px 0; padding: 8px; background: #f4f4f4; border-radius: 5px; }
+        #form { margin-top: 20px; display: flex; }
+        #input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        #send { padding: 8px 15px; border: none; background: #007bff; color: white; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <ul id="messages"></ul>
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="Type a message..." />
+        <button id="send" type="submit">Send</button>
+    </form>
+    <script>
+        const socket = io();
+
+        // Elements
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+
+        // Listen for form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent page reload
+            if (input.value) {
+                // Send the message to the server
+                socket.emit('chat message', input.value);
+                input.value = '';
+            }
+        });
+
+        // Listen for chat messages from the server
+        socket.on('chat message', (msg) => {
+            const li = document.createElement('li');
+            li.textContent = msg;
+            messages.appendChild(li);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+    </script>
+</body>
+</html>
